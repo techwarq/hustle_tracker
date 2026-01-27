@@ -9,27 +9,34 @@ interface HeatmapProps {
 export default function Heatmap({ data }: HeatmapProps) {
     const [tooltip, setTooltip] = useState<{ x: number; y: number; content: string } | null>(null);
 
-    // Generate last 12 weeks (84 days) like GitHub
-    const totalDays = 84;
-    const weeks = 12;
+    // Full year 2026: Jan 1 to Dec 31
+    const startDate = new Date('2026-01-01');
+    const endDate = new Date('2026-12-31');
 
-    const days = Array.from({ length: totalDays }, (_, i) => {
-        const d = new Date();
-        d.setDate(d.getDate() - (totalDays - 1 - i));
-        return d.toISOString().split('T')[0];
-    });
+    // Get all days in 2026
+    const days: string[] = [];
+    const current = new Date(startDate);
+    while (current <= endDate) {
+        days.push(current.toISOString().split('T')[0]);
+        current.setDate(current.getDate() + 1);
+    }
 
-    // Get month labels
+    // Calculate weeks (Jan 1, 2026 is Thursday = 4)
+    const firstDayOfWeek = startDate.getDay();
+    const totalWeeks = Math.ceil((days.length + firstDayOfWeek) / 7);
+
+    // Get month labels with positions
     const getMonthLabels = () => {
-        const months: { label: string; col: number }[] = [];
+        const months: { label: string; week: number }[] = [];
         let lastMonth = -1;
 
         days.forEach((date, i) => {
             const month = new Date(date).getMonth();
             if (month !== lastMonth) {
+                const weekIndex = Math.floor((i + firstDayOfWeek) / 7);
                 months.push({
                     label: new Date(date).toLocaleDateString('en-US', { month: 'short' }),
-                    col: Math.floor(i / 7)
+                    week: weekIndex
                 });
                 lastMonth = month;
             }
@@ -56,7 +63,7 @@ export default function Heatmap({ data }: HeatmapProps) {
         'bg-green-400'
     ];
 
-    const dayLabels = ['', 'Mon', '', 'Wed', '', 'Fri', ''];
+    const dayLabels = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
     const handleMouseEnter = (e: React.MouseEvent, date: string) => {
         const entry = data.find(d => d.date === date);
@@ -65,63 +72,99 @@ export default function Heatmap({ data }: HeatmapProps) {
         const dateStr = new Date(date).toLocaleDateString('en-US', {
             weekday: 'short',
             month: 'short',
-            day: 'numeric'
+            day: 'numeric',
+            year: 'numeric'
         });
 
         setTooltip({
             x: e.clientX,
             y: e.clientY,
-            content: `${dateStr}\n${hours.toFixed(1)}h worked • ${goals} goals done`
+            content: `${dateStr}\n${hours.toFixed(1)}h worked • ${goals} goals`
         });
     };
 
+    // Build the grid
+    const grid: (string | null)[][] = [];
+    for (let week = 0; week < totalWeeks; week++) {
+        grid[week] = [];
+        for (let day = 0; day < 7; day++) {
+            const dayIndex = week * 7 + day - firstDayOfWeek;
+            if (dayIndex >= 0 && dayIndex < days.length) {
+                grid[week][day] = days[dayIndex];
+            } else {
+                grid[week][day] = null;
+            }
+        }
+    }
+
+    const cellSize = 11;
+    const gap = 2;
+
     return (
-        <div className="relative">
+        <div className="w-full">
             {/* Month labels */}
-            <div className="flex mb-2 ml-8">
+            <div className="flex mb-1 ml-7 relative h-4">
                 {getMonthLabels().map((m, i) => (
-                    <div
+                    <span
                         key={i}
-                        className="text-[10px] text-zinc-500"
-                        style={{ marginLeft: i === 0 ? 0 : `${(m.col - (getMonthLabels()[i - 1]?.col || 0)) * 14 - 20}px` }}
+                        className="text-[10px] text-zinc-500 absolute"
+                        style={{ left: `${m.week * (cellSize + gap)}px` }}
                     >
                         {m.label}
-                    </div>
+                    </span>
                 ))}
             </div>
 
-            <div className="flex gap-1">
+            <div className="flex gap-[2px]">
                 {/* Day labels */}
-                <div className="flex flex-col gap-[3px] mr-1">
+                <div className="flex flex-col gap-[2px] mr-1 shrink-0">
                     {dayLabels.map((day, i) => (
-                        <div key={i} className="h-[12px] text-[10px] text-zinc-500 flex items-center">
-                            {day}
+                        <div
+                            key={i}
+                            className="text-[9px] text-zinc-500 flex items-center justify-end pr-1"
+                            style={{ height: `${cellSize}px`, width: '24px' }}
+                        >
+                            {i % 2 === 1 ? day : ''}
                         </div>
                     ))}
                 </div>
 
-                {/* Grid */}
-                <div className="flex gap-[3px]">
-                    {Array.from({ length: weeks }).map((_, weekIndex) => (
-                        <div key={weekIndex} className="flex flex-col gap-[3px]">
-                            {Array.from({ length: 7 }).map((_, dayIndex) => {
-                                const dateIndex = weekIndex * 7 + dayIndex;
-                                const date = days[dateIndex];
-                                if (!date) return <div key={dayIndex} className="w-[12px] h-[12px]" />;
+                {/* Heatmap Grid - fills available width */}
+                <div className="flex-1 overflow-hidden">
+                    <div
+                        className="grid gap-[2px]"
+                        style={{
+                            gridTemplateColumns: `repeat(${totalWeeks}, ${cellSize}px)`,
+                            width: 'fit-content'
+                        }}
+                    >
+                        {grid.map((week, weekIndex) => (
+                            <div key={weekIndex} className="flex flex-col gap-[2px]">
+                                {week.map((date, dayIndex) => {
+                                    if (!date) {
+                                        return (
+                                            <div
+                                                key={dayIndex}
+                                                style={{ width: `${cellSize}px`, height: `${cellSize}px` }}
+                                            />
+                                        );
+                                    }
 
-                                const level = getLevel(date);
+                                    const level = getLevel(date);
 
-                                return (
-                                    <div
-                                        key={date}
-                                        className={`w-[12px] h-[12px] rounded-[2px] ${levelColors[level]} cursor-pointer transition-all hover:ring-1 hover:ring-white/30`}
-                                        onMouseEnter={(e) => handleMouseEnter(e, date)}
-                                        onMouseLeave={() => setTooltip(null)}
-                                    />
-                                );
-                            })}
-                        </div>
-                    ))}
+                                    return (
+                                        <div
+                                            key={date}
+                                            className={`rounded-[2px] ${levelColors[level]} cursor-pointer transition-all hover:ring-1 hover:ring-white/50`}
+                                            style={{ width: `${cellSize}px`, height: `${cellSize}px` }}
+                                            onMouseEnter={(e) => handleMouseEnter(e, date)}
+                                            onMouseLeave={() => setTooltip(null)}
+                                        />
+                                    );
+                                })}
+                            </div>
+                        ))}
+                    </div>
                 </div>
             </div>
 
@@ -129,17 +172,21 @@ export default function Heatmap({ data }: HeatmapProps) {
             {tooltip && (
                 <div
                     className="fixed z-50 px-3 py-2 text-xs bg-zinc-900 border border-zinc-700 rounded-lg shadow-xl pointer-events-none whitespace-pre-line"
-                    style={{ left: tooltip.x + 10, top: tooltip.y - 40 }}
+                    style={{ left: tooltip.x + 10, top: tooltip.y - 50 }}
                 >
                     {tooltip.content}
                 </div>
             )}
 
-            {/* Legend */}
+            {/* Legend - aligned right */}
             <div className="flex items-center justify-end gap-2 mt-3 text-[10px] text-zinc-500">
                 <span>Less</span>
                 {levelColors.map((c, i) => (
-                    <div key={i} className={`w-[12px] h-[12px] rounded-[2px] ${c}`} />
+                    <div
+                        key={i}
+                        className={`rounded-[2px] ${c}`}
+                        style={{ width: `${cellSize}px`, height: `${cellSize}px` }}
+                    />
                 ))}
                 <span>More</span>
             </div>

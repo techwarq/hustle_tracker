@@ -26,7 +26,8 @@ export default function UserTimer({ userName, userId, onStop }: UserTimerProps) 
         };
     }, [isActive]);
 
-    const handleToggle = () => {
+    const handleToggle = (e: React.MouseEvent) => {
+        e.stopPropagation();
         if (isActive) {
             onStop(seconds / 3600);
             setIsActive(false);
@@ -44,48 +45,36 @@ export default function UserTimer({ userName, userId, onStop }: UserTimerProps) 
     };
 
     return (
-        <div className={`card-inner p-4 transition-all duration-300 ${isActive ? 'ring-1 ring-green-500/50 bg-green-500/5' : ''}`}>
-            <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                    {/* Avatar */}
-                    <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-semibold ${isActive ? 'bg-green-500/20 text-green-400' : 'bg-zinc-700 text-zinc-300'}`}>
-                        {userName.split(' ').map(n => n[0]).join('')}
-                    </div>
-
-                    <div>
-                        <div className="flex items-center gap-2">
-                            <span className="text-sm font-medium text-zinc-200">{userName}</span>
-                            {isActive && (
-                                <span className="flex items-center gap-1 text-[10px] text-green-400 font-medium">
-                                    <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
-                                    ACTIVE
-                                </span>
-                            )}
-                        </div>
-                        <div className={`font-mono text-lg font-semibold tracking-tight ${isActive ? 'text-white' : 'text-zinc-500'}`}>
-                            {formatTime(seconds)}
-                        </div>
-                    </div>
-                </div>
-
-                <button
-                    onClick={handleToggle}
-                    className={`w-10 h-10 rounded-full flex items-center justify-center transition-all duration-200 ${isActive
-                            ? 'bg-red-500 hover:bg-red-600 text-white'
-                            : 'bg-green-500 hover:bg-green-600 text-white'
-                        }`}
-                >
-                    {isActive ? (
-                        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                            <rect x="6" y="6" width="12" height="12" rx="1" />
-                        </svg>
-                    ) : (
-                        <svg className="w-4 h-4 ml-0.5" fill="currentColor" viewBox="0 0 24 24">
-                            <path d="M8 5v14l11-7z" />
-                        </svg>
-                    )}
-                </button>
+        <div className={`flex items-center justify-between p-2 rounded-lg transition-all ${isActive ? 'bg-green-500/10' : ''}`}>
+            <div className="flex items-center gap-2">
+                {isActive && (
+                    <span className="flex items-center gap-1 text-[10px] text-green-400 font-medium">
+                        <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
+                        ACTIVE
+                    </span>
+                )}
+                <span className={`font-mono text-sm font-semibold ${isActive ? 'text-white' : 'text-zinc-500'}`}>
+                    {formatTime(seconds)}
+                </span>
             </div>
+
+            <button
+                onClick={handleToggle}
+                className={`w-8 h-8 rounded-full flex items-center justify-center transition-all ${isActive
+                        ? 'bg-red-500 hover:bg-red-600 text-white'
+                        : 'bg-green-500 hover:bg-green-600 text-white'
+                    }`}
+            >
+                {isActive ? (
+                    <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
+                        <rect x="6" y="6" width="12" height="12" rx="1" />
+                    </svg>
+                ) : (
+                    <svg className="w-3 h-3 ml-0.5" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M8 5v14l11-7z" />
+                    </svg>
+                )}
+            </button>
         </div>
     );
 }

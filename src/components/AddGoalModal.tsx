@@ -6,9 +6,10 @@ interface AddGoalModalProps {
     isOpen: boolean;
     onClose: () => void;
     onAdd: (goal: { text: string; dueDate: string }) => void;
+    userName: string;
 }
 
-export default function AddGoalModal({ isOpen, onClose, onAdd }: AddGoalModalProps) {
+export default function AddGoalModal({ isOpen, onClose, onAdd, userName }: AddGoalModalProps) {
     const [text, setText] = useState('');
     const [dueDate, setDueDate] = useState(new Date().toISOString().split('T')[0]);
 
@@ -34,7 +35,8 @@ export default function AddGoalModal({ isOpen, onClose, onAdd }: AddGoalModalPro
 
             {/* Modal */}
             <div className="relative bg-zinc-900 border border-zinc-700 rounded-2xl p-6 w-full max-w-md mx-4 shadow-2xl">
-                <h2 className="text-lg font-semibold text-white mb-4">Add New Goal</h2>
+                <h2 className="text-lg font-semibold text-white mb-1">Add Goal for {userName}</h2>
+                <p className="text-xs text-zinc-500 mb-4">This goal will be assigned to {userName}</p>
 
                 <form onSubmit={handleSubmit} className="space-y-4">
                     {/* Goal text */}
@@ -61,6 +63,8 @@ export default function AddGoalModal({ isOpen, onClose, onAdd }: AddGoalModalPro
                             type="date"
                             value={dueDate}
                             onChange={(e) => setDueDate(e.target.value)}
+                            min="2026-01-01"
+                            max="2026-12-31"
                             className="w-full px-4 py-3 bg-zinc-800 border border-zinc-700 rounded-xl text-white focus:outline-none focus:border-green-500 transition-colors"
                         />
                     </div>

@@ -7,9 +7,9 @@ import GoalList from '@/components/GoalList';
 import AddGoalModal from '@/components/AddGoalModal';
 
 const USERS = [
-  { id: 'user-1', name: 'Sonali' },
-  { id: 'user-2', name: 'Himanshu' },
-  { id: 'user-3', name: 'Piyush' }
+  { id: 'sonali', name: 'Sonali' },
+  { id: 'himanshu', name: 'Himanshu' },
+  { id: 'piyush', name: 'Piyush' }
 ];
 
 interface Goal {
@@ -18,6 +18,7 @@ interface Goal {
   completed: boolean;
   dueDate: string;
   completedDate?: string;
+  userId: string;
 }
 
 interface HeatmapData {
@@ -27,13 +28,16 @@ interface HeatmapData {
 }
 
 export default function Home() {
+  const [selectedUser, setSelectedUser] = useState<string>(USERS[0].id);
   const [heatmapData, setHeatmapData] = useState<HeatmapData[]>([]);
   const [goals, setGoals] = useState<Goal[]>([
-    { id: 'goal-1', text: 'Setup project structure', completed: true, dueDate: '2026-01-27', completedDate: '2026-01-27' },
-    { id: 'goal-2', text: 'Implement heatmap feature', completed: false, dueDate: '2026-01-28' },
-    { id: 'goal-3', text: 'Add user authentication', completed: false, dueDate: '2026-01-30' }
+    { id: 'goal-1', text: 'Setup project structure', completed: true, dueDate: '2026-01-27', completedDate: '2026-01-27', userId: 'sonali' },
+    { id: 'goal-2', text: 'Implement heatmap feature', completed: false, dueDate: '2026-01-28', userId: 'sonali' },
+    { id: 'goal-3', text: 'Design UI mockups', completed: false, dueDate: '2026-01-29', userId: 'himanshu' },
+    { id: 'goal-4', text: 'Backend API setup', completed: false, dueDate: '2026-01-30', userId: 'piyush' }
   ]);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [modalUserId, setModalUserId] = useState<string>('');
 
   const updateHeatmapData = (date: string, hours: number = 0, goalsDone: number = 0) => {
     setHeatmapData(prev => {
@@ -63,7 +67,6 @@ export default function Home() {
           updateHeatmapData(today, 0, 1);
           return { ...g, completed: true, completedDate: today };
         } else {
-          // Decrement if uncompleting
           updateHeatmapData(today, 0, -1);
           return { ...g, completed: false, completedDate: undefined };
         }
@@ -72,29 +75,40 @@ export default function Home() {
     }));
   };
 
+  const handleOpenModal = (userId: string) => {
+    setModalUserId(userId);
+    setIsModalOpen(true);
+  };
+
   const handleAddGoal = (newGoal: { text: string; dueDate: string }) => {
     const goal: Goal = {
       id: `goal-${Date.now()}`,
       text: newGoal.text,
       completed: false,
-      dueDate: newGoal.dueDate
+      dueDate: newGoal.dueDate,
+      userId: modalUserId
     };
     setGoals(prev => [...prev, goal]);
   };
 
-  const completedCount = goals.filter(g => g.completed).length;
+  const getUserGoals = (userId: string) => goals.filter(g => g.userId === userId);
+
+  const totalCompleted = goals.filter(g => g.completed).length;
   const totalHours = heatmapData.reduce((acc, d) => acc + d.hours, 0);
+
+  const selectedUserData = USERS.find(u => u.id === selectedUser);
+  const selectedUserGoals = getUserGoals(selectedUser);
 
   return (
     <div className="min-h-screen bg-[#0f0f0f] text-white">
-      <div className="max-w-6xl mx-auto px-6 py-8">
+      <div className="max-w-7xl mx-auto px-6 py-8">
 
         {/* Header */}
-        <header className="mb-10">
+        <header className="mb-8">
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-2xl font-bold text-white mb-1">Hustle Tracker</h1>
-              <p className="text-sm text-zinc-500">Track your progress and stay productive</p>
+              <p className="text-sm text-zinc-500">2026 Progress Dashboard</p>
             </div>
 
             {/* Stats */}
@@ -102,7 +116,7 @@ export default function Home() {
               <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-zinc-800/80 border border-zinc-700/50">
                 <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
                 <span className="text-sm text-zinc-400">
-                  <span className="text-white font-semibold">{completedCount}</span>/{goals.length} goals
+                  <span className="text-white font-semibold">{totalCompleted}</span>/{goals.length} goals
                 </span>
               </div>
               <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-zinc-800/80 border border-zinc-700/50">
@@ -114,43 +128,73 @@ export default function Home() {
           </div>
         </header>
 
+        {/* Heatmap - Full Width */}
+        <div className="card p-4 mb-6">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">2026 Activity</h2>
+          </div>
+          <Heatmap data={heatmapData} />
+        </div>
+
         {/* Main content */}
         <div className="grid grid-cols-12 gap-6">
 
-          {/* Left column - Users */}
-          <div className="col-span-12 lg:col-span-3">
+          {/* Left column - Users & Timers */}
+          <div className="col-span-12 lg:col-span-4">
             <div className="card p-4">
               <h2 className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-4">Team</h2>
               <div className="space-y-3">
-                {USERS.map(user => (
-                  <UserTimer
-                    key={user.id}
-                    userName={user.name}
-                    userId={user.id}
-                    onStop={handleStopTimer}
-                  />
-                ))}
+                {USERS.map(user => {
+                  const userGoals = getUserGoals(user.id);
+                  const userCompleted = userGoals.filter(g => g.completed).length;
+
+                  return (
+                    <div
+                      key={user.id}
+                      className={`p-3 rounded-xl border transition-all cursor-pointer ${selectedUser === user.id
+                        ? 'border-green-500/50 bg-green-500/5'
+                        : 'border-zinc-700/50 bg-zinc-800/30 hover:border-zinc-600'
+                        }`}
+                      onClick={() => setSelectedUser(user.id)}
+                    >
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold ${selectedUser === user.id ? 'bg-green-500/20 text-green-400' : 'bg-zinc-700 text-zinc-300'
+                            }`}>
+                            {user.name[0]}
+                          </div>
+                          <span className="font-medium text-sm">{user.name}</span>
+                        </div>
+                        <span className="text-[10px] text-zinc-500">
+                          {userCompleted}/{userGoals.length} goals
+                        </span>
+                      </div>
+                      <UserTimer
+                        userName={user.name}
+                        userId={user.id}
+                        onStop={handleStopTimer}
+                      />
+                    </div>
+                  );
+                })}
               </div>
             </div>
           </div>
 
-          {/* Right column */}
-          <div className="col-span-12 lg:col-span-9 space-y-6">
-
-            {/* Heatmap */}
+          {/* Right column - User Goals */}
+          <div className="col-span-12 lg:col-span-8">
             <div className="card p-6">
               <div className="flex items-center justify-between mb-6">
-                <h2 className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">Activity</h2>
-              </div>
-              <Heatmap data={heatmapData} />
-            </div>
-
-            {/* Goals */}
-            <div className="card p-6">
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">Goals</h2>
+                <div>
+                  <h2 className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">
+                    {selectedUserData?.name}'s Goals
+                  </h2>
+                  <p className="text-xs text-zinc-600 mt-1">
+                    {selectedUserGoals.filter(g => g.completed).length} of {selectedUserGoals.length} completed
+                  </p>
+                </div>
                 <button
-                  onClick={() => setIsModalOpen(true)}
+                  onClick={() => handleOpenModal(selectedUser)}
                   className="flex items-center gap-2 px-3 py-1.5 bg-green-500 hover:bg-green-600 text-white text-xs font-medium rounded-lg transition-colors"
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -159,19 +203,20 @@ export default function Home() {
                   Add Goal
                 </button>
               </div>
-              <GoalList goals={goals} onToggle={handleToggleGoal} />
+
+              <GoalList goals={selectedUserGoals} onToggle={handleToggleGoal} />
 
               {/* Progress */}
-              {goals.length > 0 && (
+              {selectedUserGoals.length > 0 && (
                 <div className="mt-6 pt-4 border-t border-zinc-800">
                   <div className="flex items-center justify-between text-xs text-zinc-500 mb-2">
                     <span>Progress</span>
-                    <span>{Math.round((completedCount / goals.length) * 100)}%</span>
+                    <span>{Math.round((selectedUserGoals.filter(g => g.completed).length / selectedUserGoals.length) * 100)}%</span>
                   </div>
                   <div className="h-2 bg-zinc-800 rounded-full overflow-hidden">
                     <div
                       className="h-full bg-gradient-to-r from-green-500 to-green-400 rounded-full transition-all duration-500"
-                      style={{ width: `${(completedCount / goals.length) * 100}%` }}
+                      style={{ width: `${(selectedUserGoals.filter(g => g.completed).length / selectedUserGoals.length) * 100}%` }}
                     />
                   </div>
                 </div>
@@ -186,6 +231,7 @@ export default function Home() {
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         onAdd={handleAddGoal}
+        userName={USERS.find(u => u.id === modalUserId)?.name || ''}
       />
     </div>
   );
