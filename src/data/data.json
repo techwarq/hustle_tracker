@@ -1,0 +1,23 @@
+{
+    "workLogs": [],
+    "goals": [
+        {
+            "id": "goal-1",
+            "text": "Setup Project",
+            "completed": false,
+            "date": null
+        },
+        {
+            "id": "goal-2",
+            "text": "Implement Heatmap",
+            "completed": false,
+            "date": null
+        },
+        {
+            "id": "goal-3",
+            "text": "Integrate Timer",
+            "completed": false,
+            "date": null
+        }
+    ]
+}
