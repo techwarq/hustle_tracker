@@ -45,11 +45,15 @@ export default function Home() {
       if (existing) {
         return prev.map(d =>
           d.date === date
-            ? { ...d, hours: d.hours + hours, goals: d.goals + goalsDone }
+            ? { ...d, hours: Math.max(0, d.hours + hours), goals: Math.max(0, d.goals + goalsDone) }
             : d
         );
       }
-      return [...prev, { date, hours, goals: goalsDone }];
+      // Only add new entry if positive values
+      if (goalsDone > 0 || hours > 0) {
+        return [...prev, { date, hours: Math.max(0, hours), goals: Math.max(0, goalsDone) }];
+      }
+      return prev;
     });
   };
 
@@ -67,12 +71,19 @@ export default function Home() {
           updateHeatmapData(today, 0, 1);
           return { ...g, completed: true, completedDate: today };
         } else {
-          updateHeatmapData(today, 0, -1);
+          // When uncompleting, decrement from the original completion date if available
+          if (g.completedDate) {
+            updateHeatmapData(g.completedDate, 0, -1);
+          }
           return { ...g, completed: false, completedDate: undefined };
         }
       }
       return g;
     }));
+  };
+
+  const handleDeleteGoal = (id: string) => {
+    setGoals(prev => prev.filter(g => g.id !== id));
   };
 
   const handleOpenModal = (userId: string) => {
@@ -204,7 +215,7 @@ export default function Home() {
                 </button>
               </div>
 
-              <GoalList goals={selectedUserGoals} onToggle={handleToggleGoal} />
+              <GoalList goals={selectedUserGoals} onToggle={handleToggleGoal} onDelete={handleDeleteGoal} />
 
               {/* Progress */}
               {selectedUserGoals.length > 0 && (
