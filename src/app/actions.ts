@@ -39,6 +39,19 @@ export async function getInitialData() {
     return { goals, heatmapData: Array.from(heatmapMap.values()) };
 }
 
+export async function getTarget() {
+    const result = await sql`SELECT value FROM settings WHERE key = 'goal_target'`;
+    return result.length > 0 ? parseInt(result[0].value) : 10;
+}
+
+export async function updateTarget(value: number) {
+    await sql`
+        INSERT INTO settings (key, value)
+        VALUES ('goal_target', ${value.toString()})
+        ON CONFLICT (key) DO UPDATE SET value = ${value.toString()}
+    `;
+}
+
 export async function addGoal(goal: { text: string; dueDate: string; userId: string }) {
     await sql`
         INSERT INTO goals (id, text, completed, due_date, user_id)
@@ -107,5 +120,19 @@ export async function setupDatabase() {
             hours NUMERIC DEFAULT 0,
             UNIQUE(user_id, date)
         )
+    `;
+
+    await sql`
+        CREATE TABLE IF NOT EXISTS settings (
+            key TEXT PRIMARY KEY,
+            value TEXT NOT NULL
+        )
+    `;
+
+    // Initialize default target if not exists
+    await sql`
+        INSERT INTO settings (key, value)
+        VALUES ('goal_target', '10')
+        ON CONFLICT (key) DO NOTHING
     `;
 }

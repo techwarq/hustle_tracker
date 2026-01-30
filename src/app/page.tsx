@@ -5,7 +5,7 @@ import Heatmap from '@/components/Heatmap';
 import UserTimer from '@/components/UserTimer';
 import GoalList from '@/components/GoalList';
 import AddGoalModal from '@/components/AddGoalModal';
-import { getInitialData, addGoal, toggleGoal, deleteGoal, addWorkLog } from './actions';
+import { getInitialData, addGoal, toggleGoal, deleteGoal, addWorkLog, getTarget, updateTarget } from './actions';
 
 const USERS = [
   { id: 'sonali', name: 'Sonali' },
@@ -41,22 +41,37 @@ export default function Home() {
   const [modalUserId, setModalUserId] = useState<string>('');
   const [showCompleted, setShowCompleted] = useState(false);
   const [isLoaded, setIsLoaded] = useState(false);
+  const [target, setTarget] = useState(10);
+  const [isEditingTarget, setIsEditingTarget] = useState(false);
+  const [tempTarget, setTempTarget] = useState('10');
 
   // Load data from DB on mount
   useEffect(() => {
     async function loadData() {
-      const { goals: initialGoals, heatmapData: initialHeatmap } = await getInitialData();
-      setGoals(initialGoals);
-      setHeatmapData(initialHeatmap);
+      const [data, targetValue] = await Promise.all([getInitialData(), getTarget()]);
+      setGoals(data.goals);
+      setHeatmapData(data.heatmapData);
+      setTarget(targetValue);
+      setTempTarget(targetValue.toString());
       setIsLoaded(true);
     }
     loadData();
   }, []);
 
   const refreshAction = async () => {
-    const { goals: g, heatmapData: h } = await getInitialData();
-    setGoals(g);
-    setHeatmapData(h);
+    const [data, targetValue] = await Promise.all([getInitialData(), getTarget()]);
+    setGoals(data.goals);
+    setHeatmapData(data.heatmapData);
+    setTarget(targetValue);
+  };
+
+  const handleUpdateTarget = async () => {
+    const newValue = parseInt(tempTarget);
+    if (!isNaN(newValue) && newValue > 0) {
+      await updateTarget(newValue);
+      setTarget(newValue);
+      setIsEditingTarget(false);
+    }
   };
 
 
@@ -129,10 +144,31 @@ export default function Home() {
 
             {/* Stats */}
             <div className="flex gap-3">
-              <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-zinc-800/80 border border-zinc-700/50">
+              <div
+                className="flex items-center gap-2 px-4 py-2 rounded-full bg-zinc-800/80 border border-zinc-700/50 cursor-pointer hover:border-green-500/50 transition-colors"
+                onClick={() => setIsEditingTarget(true)}
+              >
                 <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
                 <span className="text-sm text-zinc-400">
-                  <span className="text-white font-semibold">{totalCompleted}</span>/{goals.length} goals
+                  {isEditingTarget ? (
+                    <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                      <input
+                        type="number"
+                        value={tempTarget}
+                        onChange={(e) => setTempTarget(e.target.value)}
+                        onBlur={handleUpdateTarget}
+                        onKeyDown={(e) => e.key === 'Enter' && handleUpdateTarget()}
+                        className="w-12 bg-zinc-700 border border-zinc-600 rounded px-1.5 py-0.5 text-white text-xs font-semibold focus:outline-none focus:border-green-500"
+                        autoFocus
+                      />
+                      <span className="text-[10px] text-zinc-500">Edit target</span>
+                    </div>
+                  ) : (
+                    <>
+                      <span className="text-white font-semibold">{totalCompleted}</span>/
+                      <span className="text-white font-semibold">{target}</span> goals
+                    </>
+                  )}
                 </span>
               </div>
               <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-zinc-800/80 border border-zinc-700/50">
@@ -244,20 +280,18 @@ export default function Home() {
               <GoalList goals={selectedUserGoals} onToggle={handleToggleGoal} onDelete={handleDeleteGoal} />
 
               {/* Progress */}
-              {selectedUserTotalGoals.length > 0 && (
-                <div className="mt-6 pt-4 border-t border-zinc-800">
-                  <div className="flex items-center justify-between text-xs text-zinc-500 mb-2">
-                    <span>Progress</span>
-                    <span>{Math.round((selectedUserCompletedCount / selectedUserTotalGoals.length) * 100)}%</span>
-                  </div>
-                  <div className="h-2 bg-zinc-800 rounded-full overflow-hidden">
-                    <div
-                      className="h-full bg-gradient-to-r from-green-500 to-green-400 rounded-full transition-all duration-500"
-                      style={{ width: `${(selectedUserCompletedCount / selectedUserTotalGoals.length) * 100}%` }}
-                    />
-                  </div>
+              <div className="mt-6 pt-4 border-t border-zinc-800">
+                <div className="flex items-center justify-between text-xs text-zinc-500 mb-2">
+                  <span>Target Progress</span>
+                  <span>{Math.round((selectedUserCompletedCount / target) * 100)}%</span>
                 </div>
-              )}
+                <div className="h-2 bg-zinc-800 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-gradient-to-r from-green-500 to-green-400 rounded-full transition-all duration-500"
+                    style={{ width: `${Math.min(100, (selectedUserCompletedCount / target) * 100)}%` }}
+                  />
+                </div>
+              </div>
             </div>
           </div>
         </div>
