@@ -5,6 +5,7 @@ import Heatmap from '@/components/Heatmap';
 import UserTimer from '@/components/UserTimer';
 import GoalList from '@/components/GoalList';
 import AddGoalModal from '@/components/AddGoalModal';
+import { getInitialData, addGoal, toggleGoal, deleteGoal, addWorkLog } from './actions';
 
 const USERS = [
   { id: 'sonali', name: 'Sonali' },
@@ -41,87 +42,43 @@ export default function Home() {
   const [showCompleted, setShowCompleted] = useState(false);
   const [isLoaded, setIsLoaded] = useState(false);
 
-  // Load data from localStorage on mount
+  // Load data from DB on mount
   useEffect(() => {
-    const savedGoals = localStorage.getItem(STORAGE_KEYS.GOALS);
-    const savedHeatmap = localStorage.getItem(STORAGE_KEYS.HEATMAP);
-
-    if (savedGoals) {
-      setGoals(JSON.parse(savedGoals));
-    } else {
-      // Default goals for first time
-      setGoals([
-        { id: 'goal-1', text: 'Setup project structure', completed: true, dueDate: '2026-01-27', completedDate: '2026-01-27', userId: 'sonali' },
-        { id: 'goal-2', text: 'Implement heatmap feature', completed: false, dueDate: '2026-01-28', userId: 'sonali' },
-        { id: 'goal-3', text: 'Design UI mockups', completed: false, dueDate: '2026-01-29', userId: 'himanshu' },
-        { id: 'goal-4', text: 'Backend API setup', completed: false, dueDate: '2026-01-30', userId: 'piyush' }
-      ]);
+    async function loadData() {
+      const { goals: initialGoals, heatmapData: initialHeatmap } = await getInitialData();
+      setGoals(initialGoals);
+      setHeatmapData(initialHeatmap);
+      setIsLoaded(true);
     }
-
-    if (savedHeatmap) {
-      setHeatmapData(JSON.parse(savedHeatmap));
-    }
-
-    setIsLoaded(true);
+    loadData();
   }, []);
 
-  // Save goals to localStorage whenever they change
-  useEffect(() => {
-    if (isLoaded) {
-      localStorage.setItem(STORAGE_KEYS.GOALS, JSON.stringify(goals));
-    }
-  }, [goals, isLoaded]);
-
-  // Save heatmap data to localStorage whenever it changes
-  useEffect(() => {
-    if (isLoaded) {
-      localStorage.setItem(STORAGE_KEYS.HEATMAP, JSON.stringify(heatmapData));
-    }
-  }, [heatmapData, isLoaded]);
-
-  const updateHeatmapData = (date: string, hours: number = 0, goalsDone: number = 0) => {
-    setHeatmapData(prev => {
-      const existing = prev.find(d => d.date === date);
-      if (existing) {
-        return prev.map(d =>
-          d.date === date
-            ? { ...d, hours: Math.max(0, d.hours + hours), goals: Math.max(0, d.goals + goalsDone) }
-            : d
-        );
-      }
-      if (goalsDone > 0 || hours > 0) {
-        return [...prev, { date, hours: Math.max(0, hours), goals: Math.max(0, goalsDone) }];
-      }
-      return prev;
-    });
+  const refreshAction = async () => {
+    const { goals: g, heatmapData: h } = await getInitialData();
+    setGoals(g);
+    setHeatmapData(h);
   };
 
-  const handleStopTimer = (duration: number) => {
+
+  const handleStopTimer = async (duration: number) => {
     const today = new Date().toISOString().split('T')[0];
-    updateHeatmapData(today, duration, 0);
+    await addWorkLog(selectedUser, today, duration);
+    await refreshAction();
   };
 
-  const handleToggleGoal = (id: string) => {
+  const handleToggleGoal = async (id: string) => {
     const today = new Date().toISOString().split('T')[0];
-    setGoals(prev => prev.map(g => {
-      if (g.id === id) {
-        const newCompleted = !g.completed;
-        if (newCompleted) {
-          updateHeatmapData(today, 0, 1);
-          return { ...g, completed: true, completedDate: today };
-        } else {
-          if (g.completedDate) {
-            updateHeatmapData(g.completedDate, 0, -1);
-          }
-          return { ...g, completed: false, completedDate: undefined };
-        }
-      }
-      return g;
-    }));
+    const goal = goals.find(g => g.id === id);
+    if (!goal) return;
+
+    const newCompleted = !goal.completed;
+    await toggleGoal(id, newCompleted, newCompleted ? today : undefined);
+    await refreshAction();
   };
 
-  const handleDeleteGoal = (id: string) => {
-    setGoals(prev => prev.filter(g => g.id !== id));
+  const handleDeleteGoal = async (id: string) => {
+    await deleteGoal(id);
+    await refreshAction();
   };
 
   const handleOpenModal = (userId: string) => {
@@ -129,15 +86,9 @@ export default function Home() {
     setIsModalOpen(true);
   };
 
-  const handleAddGoal = (newGoal: { text: string; dueDate: string }) => {
-    const goal: Goal = {
-      id: `goal-${Date.now()}`,
-      text: newGoal.text,
-      completed: false,
-      dueDate: newGoal.dueDate,
-      userId: modalUserId
-    };
-    setGoals(prev => [...prev, goal]);
+  const handleAddGoal = async (newGoal: { text: string; dueDate: string }) => {
+    await addGoal({ ...newGoal, userId: modalUserId });
+    await refreshAction();
   };
 
   const getUserGoals = (userId: string) => {
@@ -217,8 +168,8 @@ export default function Home() {
                     <div
                       key={user.id}
                       className={`p-3 rounded-xl border transition-all cursor-pointer ${selectedUser === user.id
-                          ? 'border-green-500/50 bg-green-500/5'
-                          : 'border-zinc-700/50 bg-zinc-800/30 hover:border-zinc-600'
+                        ? 'border-green-500/50 bg-green-500/5'
+                        : 'border-zinc-700/50 bg-zinc-800/30 hover:border-zinc-600'
                         }`}
                       onClick={() => setSelectedUser(user.id)}
                     >
@@ -263,8 +214,8 @@ export default function Home() {
                   <button
                     onClick={() => setShowCompleted(!showCompleted)}
                     className={`flex items-center gap-2 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${showCompleted
-                        ? 'bg-zinc-700 text-white'
-                        : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'
+                      ? 'bg-zinc-700 text-white'
+                      : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'
                       }`}
                   >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
