@@ -5,7 +5,7 @@ import Heatmap from '@/components/Heatmap';
 import UserTimer from '@/components/UserTimer';
 import GoalList from '@/components/GoalList';
 import AddGoalModal from '@/components/AddGoalModal';
-import { getInitialData, addGoal, toggleGoal, deleteGoal, addWorkLog, getTarget, updateTarget } from './actions';
+import { getInitialData, addGoal, toggleGoal, deleteGoal, addWorkLog, getTargetSettings, updateTargetSettings } from './actions';
 
 const USERS = [
   { id: 'sonali', name: 'Sonali' },
@@ -42,47 +42,53 @@ export default function Home() {
   const [showCompleted, setShowCompleted] = useState(false);
   const [isLoaded, setIsLoaded] = useState(false);
   const [target, setTarget] = useState(10);
+  const [targetDesc, setTargetDesc] = useState('');
   const [isEditingTarget, setIsEditingTarget] = useState(false);
   const [tempTarget, setTempTarget] = useState('10');
+  const [tempDesc, setTempDesc] = useState('');
 
   // Load data from DB on mount
   useEffect(() => {
     async function loadData() {
-      const [data, targetValue] = await Promise.all([getInitialData(), getTarget()]);
+      const [data, settings] = await Promise.all([getInitialData(), getTargetSettings()]);
       setGoals(data.goals);
       setHeatmapData(data.heatmapData);
-      setTarget(targetValue);
-      setTempTarget(targetValue.toString());
+      setTarget(settings.value);
+      setTempTarget(settings.value.toString());
+      setTargetDesc(settings.description);
+      setTempDesc(settings.description);
       setIsLoaded(true);
     }
     loadData();
   }, []);
 
   const refreshAction = async () => {
-    const [data, targetValue] = await Promise.all([getInitialData(), getTarget()]);
+    const [data, settings] = await Promise.all([getInitialData(), getTargetSettings()]);
     setGoals(data.goals);
     setHeatmapData(data.heatmapData);
-    setTarget(targetValue);
+    setTarget(settings.value);
+    setTargetDesc(settings.description);
   };
 
   const handleUpdateTarget = async () => {
     const newValue = parseInt(tempTarget);
     if (!isNaN(newValue) && newValue > 0) {
-      await updateTarget(newValue);
+      await updateTargetSettings(newValue, tempDesc);
       setTarget(newValue);
+      setTargetDesc(tempDesc);
       setIsEditingTarget(false);
     }
   };
 
 
   const handleStopTimer = async (duration: number) => {
-    const today = new Date().toISOString().split('T')[0];
+    const today = new Date().toLocaleDateString('en-CA');
     await addWorkLog(selectedUser, today, duration);
     await refreshAction();
   };
 
   const handleToggleGoal = async (id: string) => {
-    const today = new Date().toISOString().split('T')[0];
+    const today = new Date().toLocaleDateString('en-CA');
     const goal = goals.find(g => g.id === id);
     if (!goal) return;
 
@@ -142,39 +148,64 @@ export default function Home() {
               <p className="text-sm text-zinc-500">2026 Progress Dashboard</p>
             </div>
 
-            {/* Stats */}
-            <div className="flex gap-3">
-              <div
-                className="flex items-center gap-2 px-4 py-2 rounded-full bg-zinc-800/80 border border-zinc-700/50 cursor-pointer hover:border-green-500/50 transition-colors"
-                onClick={() => setIsEditingTarget(true)}
-              >
-                <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-                <span className="text-sm text-zinc-400">
-                  {isEditingTarget ? (
-                    <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-                      <input
-                        type="number"
-                        value={tempTarget}
-                        onChange={(e) => setTempTarget(e.target.value)}
-                        onBlur={handleUpdateTarget}
-                        onKeyDown={(e) => e.key === 'Enter' && handleUpdateTarget()}
-                        className="w-12 bg-zinc-700 border border-zinc-600 rounded px-1.5 py-0.5 text-white text-xs font-semibold focus:outline-none focus:border-green-500"
-                        autoFocus
-                      />
-                      <span className="text-[10px] text-zinc-500">Edit target</span>
-                    </div>
-                  ) : (
-                    <>
-                      <span className="text-white font-semibold">{totalCompleted}</span>/
-                      <span className="text-white font-semibold">{target}</span> goals
-                    </>
-                  )}
-                </span>
-              </div>
-              <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-zinc-800/80 border border-zinc-700/50">
-                <span className="text-sm text-zinc-400">
-                  <span className="text-white font-semibold">{totalHours.toFixed(1)}</span>h tracked
-                </span>
+            {/* Mission & Stats */}
+            <div className="flex items-center gap-6">
+              {isEditingTarget ? (
+                <div className="flex items-center gap-4 bg-zinc-800/40 p-2 rounded-xl border border-zinc-700/50">
+                  <div className="flex flex-col gap-1">
+                    <label className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider">Target Mission</label>
+                    <input
+                      type="text"
+                      value={tempDesc}
+                      onChange={(e) => setTempDesc(e.target.value)}
+                      className="bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:border-green-500 w-64"
+                      placeholder="e.g. 100 users -> $20k"
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <label className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider">Number</label>
+                    <input
+                      type="number"
+                      value={tempTarget}
+                      onChange={(e) => setTempTarget(e.target.value)}
+                      className="bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:border-green-500 w-20"
+                    />
+                  </div>
+                  <button
+                    onClick={handleUpdateTarget}
+                    className="mt-4 px-3 py-1.5 bg-green-500 text-white rounded-lg text-xs font-bold hover:bg-green-600 transition-colors"
+                  >
+                    Save
+                  </button>
+                </div>
+              ) : (
+                <div
+                  className="flex flex-col items-end cursor-pointer group"
+                  onClick={() => setIsEditingTarget(true)}
+                >
+                  <div className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider mb-1 group-hover:text-green-400 transition-colors">Current Target</div>
+                  <div className="text-sm font-medium text-white group-hover:text-green-300 transition-colors bg-zinc-800/30 px-3 py-1 rounded-lg border border-transparent group-hover:border-green-500/20">
+                    {targetDesc || "No mission set"}
+                  </div>
+                </div>
+              )}
+
+              <div className="flex gap-3">
+                <div
+                  className="flex items-center gap-2 px-4 py-2 rounded-full bg-zinc-800/80 border border-zinc-700/50 cursor-pointer hover:border-green-500/50 transition-colors"
+                  onClick={() => setIsEditingTarget(true)}
+                >
+                  <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                  <span className="text-sm text-zinc-400">
+                    <span className="text-white font-semibold">{totalCompleted}</span>/
+                    <span className="text-white font-semibold">{target}</span> goals
+                  </span>
+                </div>
+                <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-zinc-800/80 border border-zinc-700/50">
+                  <span className="text-sm text-zinc-400">
+                    <span className="text-white font-semibold">{totalHours.toFixed(2)}</span>h tracked
+                  </span>
+                </div>
               </div>
             </div>
           </div>

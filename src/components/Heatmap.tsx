@@ -73,13 +73,18 @@ export default function Heatmap({ data }: HeatmapProps) {
             weekday: 'short',
             month: 'short',
             day: 'numeric',
-            year: 'numeric'
+            year: 'numeric',
+            timeZone: 'UTC'
         });
+
+        const timeStr = hours > 0 && hours < 0.1
+            ? `${Math.round(hours * 60)}m`
+            : `${hours.toFixed(2)}h`;
 
         setTooltip({
             x: e.clientX,
             y: e.clientY,
-            content: `${dateStr}\n${hours.toFixed(1)}h worked • ${goals} goals`
+            content: `${dateStr}\n${timeStr} worked • ${goals} goals`
         });
     };
 

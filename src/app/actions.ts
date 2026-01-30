@@ -39,16 +39,26 @@ export async function getInitialData() {
     return { goals, heatmapData: Array.from(heatmapMap.values()) };
 }
 
-export async function getTarget() {
-    const result = await sql`SELECT value FROM settings WHERE key = 'goal_target'`;
-    return result.length > 0 ? parseInt(result[0].value) : 10;
+export async function getTargetSettings() {
+    const results = await sql`SELECT key, value FROM settings WHERE key IN ('goal_target', 'target_desc')`;
+    const settings = {
+        value: 10,
+        description: 'Set your mission...'
+    };
+    results.forEach(r => {
+        if (r.key === 'goal_target') settings.value = parseInt(r.value);
+        if (r.key === 'target_desc') settings.description = r.value;
+    });
+    return settings;
 }
 
-export async function updateTarget(value: number) {
+export async function updateTargetSettings(value: number, description: string) {
     await sql`
         INSERT INTO settings (key, value)
-        VALUES ('goal_target', ${value.toString()})
-        ON CONFLICT (key) DO UPDATE SET value = ${value.toString()}
+        VALUES 
+            ('goal_target', ${value.toString()}),
+            ('target_desc', ${description})
+        ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value
     `;
 }
 
@@ -132,7 +142,9 @@ export async function setupDatabase() {
     // Initialize default target if not exists
     await sql`
         INSERT INTO settings (key, value)
-        VALUES ('goal_target', '10')
+        VALUES 
+            ('goal_target', '10'),
+            ('target_desc', '100 users -> $20k revenue')
         ON CONFLICT (key) DO NOTHING
     `;
 }
